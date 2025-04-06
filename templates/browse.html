@@ -47,8 +47,6 @@
     </div>
 
     <script>
-        let displayedIds = new Set();
-
         // 初始化加载论文
         window.onload = function() {
             // 直接使用模板变量中的用户名，无需从sessionStorage获取
@@ -66,17 +64,15 @@
         // 修改后的加载新论文函数
         async function loadNewPapers(count) {
             try {
-                // 将Set转换为数组作为查询参数
-                const excludedIds = Array.from(displayedIds).join(',');
                 // 从隐藏字段获取用户ID
                 const user_id = parseInt(document.getElementById('userId').textContent);
-                const response = await fetch(`http://localhost:5001/api/papers?excluded_ids=${encodeURIComponent(excludedIds)}&user_id=${user_id}`);
+                const response = await fetch(`http://localhost:5001/api/papers?user_id=${user_id}`);
                 const papers = await response.json();
                 
                 // 移除原有的ID检查逻辑，直接创建卡片
                 for (const paper of papers.slice(0, count)) {
                     createPaperCard(paper);
-                    displayedIds.add(paper.id);
+                    await fetch(`http://localhost:5001/api/viewed?user_id=${user_id}&paper_id=${paper.id}`)
                 }
         
                 // 保持显示数量逻辑保持不变

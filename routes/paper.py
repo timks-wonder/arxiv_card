@@ -24,10 +24,6 @@ def get_papers():
         rank_papers(user_id=int(user_id), k=100)
         data_path = Path(__file__).parent.parent / f'user_data/user_{user_id}/arxiv_recal_samples.csv'
         df = pd.read_csv(data_path)
-        excluded_ids = request.args.get('excluded_ids', '').split(',')
-        
-        # 过滤已排除的ID
-        filtered_df = df[~df['id'].astype(str).isin(excluded_ids)]
         # if len(filtered_df) < 90:
         #     pass
         
@@ -41,7 +37,7 @@ def get_papers():
             'summary': row.summary,
             'url': row.url,
             'summary_embeddings': np.frombuffer(eval(row.summary_embeddings)[0], dtype=np.float32).tolist()
-        } for _, row in filtered_df.head(10).iterrows()]
+        } for _, row in df.head(10).iterrows()]
         return jsonify(papers)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -72,10 +68,28 @@ def behave_log(data, is_like=True):
         print(f"记录行为日志失败: {str(e)}")
         return False
 
+@bp.route('/viewed', methods=['GET'])
+def add_viewed_record():
+    user_id = request.args.get('user_id')
+    paper_id = request.args.get('paper_id')
+    """添加论文浏览记录到用户文件"""
+    viewed_path = f'user_data/user_{user_id}/user_viewed.csv'
+    viewed_df = pd.read_csv(viewed_path)
+    
+    # 添加新记录
+    new_entry = pd.DataFrame({'read_article_id': [paper_id]})
+    viewed_df = pd.concat([viewed_df, new_entry], ignore_index=True)
+    viewed_df.to_csv(viewed_path, index=False)
+    return jsonify({'status': 'success'})
+
 @bp.route('/like', methods=['POST'])
 def handle_like():
     data = request.get_json()
     user_id = data['user_id']
+    # paper_id = data['paper_id']
+    
+    # # 添加浏览记录
+    # add_viewed_record(user_id, paper_id)
     
     from .auth import get_users_df, save_users_df
     df = get_users_df()
@@ -100,6 +114,10 @@ def handle_like():
 def handle_dislike():
     data = request.get_json()
     user_id = data['user_id']
+    # paper_id = data['paper_id']
+    
+    # # 添加浏览记录
+    # add_viewed_record(user_id, paper_id)
     
     from .auth import get_users_df, save_users_df
     df = get_users_df()
@@ -118,3 +136,5 @@ def handle_dislike():
         
     behave_log(data, is_like=False)
     return jsonify({'status': 'success'})
+
+

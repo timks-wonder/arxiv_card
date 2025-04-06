@@ -37,12 +37,12 @@ def rank_papers(
         user_embeddings.reshape(1, -1)
     ).flatten()
     
-    # 过滤已读论文
-    viewed = []
-    available_mask = np.isin(np.arange(len(sim_scores)), viewed, invert=True)
-    top_indices = np.argsort(sim_scores[available_mask])[-k:][::-1]
-    top_indices = np.arange(len(sim_scores))[available_mask][top_indices]
-    top_indices = [idx for idx in top_indices if idx not in viewed]
+    # # 过滤已读论文
+    # viewed = []
+    # available_mask = np.isin(np.arange(len(sim_scores)), viewed, invert=True)
+    top_indices = np.argsort(sim_scores)[-k:][::-1]
+    # top_indices = np.arange(len(sim_scores))[available_mask][top_indices]
+    # top_indices = [idx for idx in top_indices if idx not in viewed]
     
     # 保存结果
     output_dir = f'{recall_dir}/user_{user_id}'

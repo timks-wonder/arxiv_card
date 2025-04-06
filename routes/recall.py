@@ -21,6 +21,15 @@ def recall_with_defaults(
         output_dir: 输出目录
     """
     t0 = time()
+    viewed_path = f'{output_dir}/user_{user_id}/user_viewed.csv'
+    if not os.path.exists(viewed_path):
+        viewed_df = pd.DataFrame(columns=['read_article_id'])
+        viewed_df.to_csv(viewed_path, index=False)
+    else:
+        viewed_df = pd.read_csv(viewed_path)
+    
+    viewed_article_ids = viewed_df['read_article_id'].tolist()
+    print(viewed_article_ids)
     
     # 处理用户embedding
     user_df = pd.read_csv(user_path)
@@ -38,9 +47,12 @@ def recall_with_defaults(
         title_embeddings, 
         user_embeddings.reshape(1, -1)
     ).flatten()
-    
-    # 获取topK结果
-    top_K_indices = np.argsort(similarities)[-K:][::-1]
+
+    # 过滤已读论文
+    available_mask = np.isin(np.arange(len(similarities)), viewed_article_ids, invert=True)
+    top_K_indices = np.argsort(similarities[available_mask])[-K:][::-1]
+    top_K_indices = np.arange(len(similarities))[available_mask][top_K_indices]
+    top_K_indices = [idx-1 for idx in top_K_indices if idx not in viewed_article_ids]
     top_K_samples = paper_df.iloc[top_K_indices]
     
     # 保存结果
