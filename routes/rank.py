@@ -21,7 +21,7 @@ def rank_papers(
     t0 = time()
 
     user_df = pd.read_csv(user_path)
-    recall_path = f'{recall_dir}/user_{user_id}/arxiv_recal_samples.csv'
+    recall_path = f'{recall_dir}/user_{user_id}/arxiv_recall_samples.csv'
     recall_df = pd.read_csv(recall_path)
     
     user_emb_bytes = eval(user_df.loc[user_df['id'] == user_id, 'user_embedding'].values[0])

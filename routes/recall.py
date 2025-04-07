@@ -58,7 +58,7 @@ def recall_with_defaults(
     # 保存结果
     save_dir = f'{output_dir}/user_{user_id}'
     os.makedirs(save_dir, exist_ok=True)
-    top_K_samples.to_csv(f'{save_dir}/arxiv_recal_samples.csv', index=False)
+    top_K_samples.to_csv(f'{save_dir}/arxiv_recall_samples.csv', index=False)
     
     print(f'召回用时：{time()-t0:.2f}s')
     return top_K_samples

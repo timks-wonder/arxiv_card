@@ -91,6 +91,10 @@
             card.innerHTML = `
                 <h5><a href="${paper.url}" target="_blank">${paper.title}</a></h5>
                 <div class="text-muted mb-2">作者：${paper.authors}</div>
+                <div class="text-muted mb-2">
+                    <span class="badge bg-secondary me-2">${paper.categories}</span>
+                    <small>发布于：${new Date(paper.published).toLocaleDateString()}</small>
+                </div>
                 <div class="summary-container">
                     <p class="text-secondary summary-content">摘要：${paper.summary}</p>
                     <button class="btn btn-link btn-sm p-0" onclick="toggleSummary(this)">展开</button>
@@ -99,11 +103,11 @@
                     <button class="btn btn-outline-danger" 
                             title="dislike"
                             data-bs-toggle="tooltip"
-                            onclick="handleAction(this, 'dislike', '${paper.summary_embeddings}', '${paper.id}')">💔</button>
+                            onclick="handleAction(this, 'dislike', '${paper.summary_embeddings}', '${paper.id}')">👎</button>
                     <button class="btn btn-primary" 
                             title="like"
                             data-bs-toggle="tooltip"
-                            onclick="handleAction(this, 'like', '${paper.summary_embeddings}', '${paper.id}')">❤️</button>
+                            onclick="handleAction(this, 'like', '${paper.summary_embeddings}', '${paper.id}')">👍</button>
                 </div>
             `;
             document.getElementById('paperContainer').appendChild(card);

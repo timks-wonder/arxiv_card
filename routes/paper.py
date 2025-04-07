@@ -22,7 +22,7 @@ def get_papers():
         user_id = (request.args.get('user_id'))
         recall_with_defaults(user_id=int(user_id), K=1000)
         rank_papers(user_id=int(user_id), k=100)
-        data_path = Path(__file__).parent.parent / f'user_data/user_{user_id}/arxiv_recal_samples.csv'
+        data_path = Path(__file__).parent.parent / f'user_data/user_{user_id}/arxiv_recall_samples.csv'
         df = pd.read_csv(data_path)
         # if len(filtered_df) < 90:
         #     pass

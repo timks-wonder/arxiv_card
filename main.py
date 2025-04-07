@@ -5,9 +5,7 @@ from sentence_transformers import SentenceTransformer
 
 import os
 
-import os
-
-cv_papers_path = 'arxiv_data/arxiv_cv_papers_1.csv'
+cv_papers_path = 'arxiv_data/arxiv_cv_papers.csv'
 
 if os.path.exists(cv_papers_path):
     df = pd.read_csv(cv_papers_path)
