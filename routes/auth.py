@@ -41,7 +41,7 @@ def register():
     
     # 加载初始embedding（添加类型转换）
     rank_emb = np.load('user_data/ori_rank_embedding.npy').astype(np.float32)
-    recall_emb = np.load('user_data/ori_recal_embedding.npy').astype(np.float32)
+    recall_emb = np.load('user_data/ori_recall_embedding.npy').astype(np.float32)
 
     try:
         df = get_users_df()

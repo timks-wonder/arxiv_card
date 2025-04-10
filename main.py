@@ -16,6 +16,7 @@ if os.path.exists(cv_papers_path):
     # 获取最新日期的后一天
     next_latest_date = latest_date + pd.Timedelta(days=1)
 else:
+    os.makedirs('arxiv_data', exist_ok=True)
     max_id = 0
     latest_date = pd.to_datetime('2025-01-01')
     next_latest_date = latest_date
@@ -86,7 +87,18 @@ if data:
     # 将标题向量和摘要向量转换为二进制格式
     title_embeddings_binary = [np.array(embedding).tobytes() for embedding in title_embeddings]
     summary_embeddings_binary = [np.array(embedding).tobytes() for embedding in summary_embeddings]
+    
+    title_embeddings_np = np.array([np.frombuffer(embedding, dtype=np.float32) for embedding in title_embeddings_binary])
+    mean_title_embedding = np.mean(title_embeddings_np, axis=0)
+    summary_embeddings_np = np.array([np.frombuffer(embedding, dtype=np.float32) for embedding in summary_embeddings_binary])
+    mean_summary_embedding = np.mean(summary_embeddings_np, axis=0)
 
+    # 确保user_data目录存在
+    if not os.path.exists('user_data'):
+        os.makedirs('user_data')
+
+    np.save('user_data/ori_rank_embedding.npy', mean_title_embedding)
+    np.save('user_data/ori_recall_embedding.npy', mean_summary_embedding)
     title_embeddings_df = pd.DataFrame(title_embeddings_binary)
     summary_embeddings_df = pd.DataFrame(summary_embeddings_binary)
 

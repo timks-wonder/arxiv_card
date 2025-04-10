@@ -27,7 +27,6 @@ def get_papers():
         # if len(filtered_df) < 90:
         #     pass
         
-        # 取前10篇（或根据需求调整数量）
         papers = [{
             'id': row.id,
             'title': row.title,

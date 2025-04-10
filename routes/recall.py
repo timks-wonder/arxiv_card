@@ -21,6 +21,8 @@ def recall_with_defaults(
         output_dir: 输出目录
     """
     t0 = time()
+    save_dir = f'{output_dir}/user_{user_id}'
+    os.makedirs(save_dir, exist_ok=True)
     viewed_path = f'{output_dir}/user_{user_id}/user_viewed.csv'
     if not os.path.exists(viewed_path):
         viewed_df = pd.DataFrame(columns=['read_article_id'])
@@ -55,9 +57,6 @@ def recall_with_defaults(
     top_K_indices = [idx-1 for idx in top_K_indices if idx not in viewed_article_ids]
     top_K_samples = paper_df.iloc[top_K_indices]
     
-    # 保存结果
-    save_dir = f'{output_dir}/user_{user_id}'
-    os.makedirs(save_dir, exist_ok=True)
     top_K_samples.to_csv(f'{save_dir}/arxiv_recall_samples.csv', index=False)
     
     print(f'召回用时：{time()-t0:.2f}s')
