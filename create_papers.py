@@ -34,7 +34,8 @@ print(f'爬取范围：{query}')
 search = arxiv.Search(
     query=query,
     max_results=10000,
-    sort_by=arxiv.SortCriterion.SubmittedDate
+    sort_by=arxiv.SortCriterion.SubmittedDate,
+    sort_order=arxiv.SortOrder.Ascending
 )
 
 # 获取数据并结构化
@@ -69,6 +70,64 @@ try:
 
 except Exception as e:
     print(f"\n爬取过程中发生错误: {str(e)}")
+# 循环检查最新论文日期，若没到today则继续搜索
+previous_dates = []  # 存储前几次的日期用于检测重复
+while data:
+    # 获取data中最新论文的日期
+    latest_paper_date = max(pd.to_datetime([entry["published"] for entry in data]))
+    
+    # 检查是否连续三次相同
+    if len(previous_dates) >= 2 and all(d == latest_paper_date for d in previous_dates[-2:]):
+        print("\n检测到连续三次获取相同日期，终止爬取")
+        break
+    previous_dates.append(latest_paper_date)
+    
+    if latest_paper_date < pd.to_datetime(today):
+        # 计算最新日期的下一天
+        next_latest_date = latest_paper_date + pd.Timedelta(days=1)
+        next_latest_date_str = next_latest_date.strftime('%Y%m%d')
+        # 更新搜索查询
+        query = f"cat:cs.CV AND submittedDate:[{next_latest_date_str} TO {today}]"
+        print(f'\n更新爬取范围：{query}')
+
+        # 配置搜索参数
+        search = arxiv.Search(
+            query=query,
+            max_results=10000,
+            sort_by=arxiv.SortCriterion.SubmittedDate,
+            sort_order=arxiv.SortOrder.Ascending
+        )
+
+        # 在循环继续爬取数据时，需要从当前已有数据的最大id + 1开始新的编号
+        max_id = max([entry["id"] for entry in data]) if data else 0
+        try:
+            for idx, result in enumerate(tqdm(search.results(), 
+                                           desc='继续爬取进度',
+                                           unit='篇',
+                                           ncols=100,
+                                           colour='green'), start=max_id + 1):
+                try:
+                    entry = {
+                        "id": idx,
+                        "title": result.title,
+                        "authors": ", ".join([a.name for a in result.authors]),
+                        "categories": ", ".join(result.categories),
+                        "published": result.published.strftime('%Y-%m-%d'),
+                        "summary": result.summary.replace('\n', ' ').strip(),
+                        "url": result.entry_id
+                    }
+                    data.append(entry)
+                except UnexpectedEmptyPageError:
+                    print(f"\n在获取第{idx}篇论文时遇到空页面")
+                    continue
+                except Exception as e:
+                    print(f"\n处理第{idx}篇论文时出错: {str(e)}")
+                    continue
+        except Exception as e:
+            print(f"\n爬取过程中发生错误: {str(e)}")
+    else:
+        break
+
 
 model = SentenceTransformer('all-MiniLM-L6-v2') 
 # 转换为DataFrame并保存
