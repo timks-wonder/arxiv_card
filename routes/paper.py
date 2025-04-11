@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, session, render_template  # 添加render_template
 import pandas as pd
 from pathlib import Path
 from flask import request
@@ -135,5 +135,10 @@ def handle_dislike():
         
     behave_log(data, is_like=False)
     return jsonify({'status': 'success'})
+
+
+@bp.route('/browse')
+def browse():
+    return render_template('browse.html', username=session['username'])
 
 

@@ -19,6 +19,35 @@
         .dashboard-section {
             margin-top: 3rem;
         }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+        #keywordTags {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .keyword-badge {
+            padding: 0.5rem 1rem;
+            background-color: #e9ecef;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            position: relative;
+        }
+        .close-btn {
+            cursor: pointer;
+            margin-left: 8px;
+            color: #888;
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        .close-btn:hover {
+            color: #dc3545;
+        }
     </style>
 </head>
 <body>
@@ -47,7 +76,7 @@
                 <div class="feature-card bg-white">
                     <h4>📚 论文浏览</h4>
                     <p class="text-secondary">探索最新推荐的科研论文</p>
-                    <button class="btn btn-primary w-100" onclick="window.location.href='/browse'">开始浏览</button>
+                    <button class="btn btn-primary w-100" onclick="window.location.href='{{ url_for('paper.browse') }}'">开始浏览</button>
                 </div>
             </div>
             
@@ -58,6 +87,24 @@
                     <button class="btn btn-outline-secondary w-100" disabled>即将推出</button>
                 </div>
             </div>
+            <div class="col-md-6">
+                <div class="feature-card bg-white">
+                    <h4>🔍 兴趣关键词</h4>
+                    <form onsubmit="event.preventDefault(); submitKeywords()">
+                        <div id="keywordTags" class="mb-3"></div>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="keywordsInput" rows="3" 
+                                placeholder="请输入您感兴趣的研究领域关键词，多个关键词用逗号分隔"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">保存兴趣偏好</button>
+                    </form>
+                    <div class="toast-container">
+                        <div id="saveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                            <div class="toast-body"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -65,6 +112,100 @@
         function logout() {
             fetch('/auth/logout', { method: 'POST' })
                 .then(() => window.location.href = '/auth/login');
+        }
+
+        // 初始化时加载现有关键词
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/get_interests')
+                .then(response => response.json())
+                .then(data => {
+                    if(data.keywords) {
+                        updateKeywordDisplay(data.keywords);
+                        // document.getElementById('keywordsInput').value = data.keywords;
+                    }
+                });
+        });
+
+        function updateKeywordDisplay(keywords) {
+            const tagsContainer = document.getElementById('keywordTags');
+            tagsContainer.innerHTML = keywords
+                .map(k => `<div class="keyword-badge">${k}<span class="close-btn" onclick="removeKeyword(event, '${k}')">&times;</span></div>`)
+                .join('');
+        }
+
+        function removeKeyword(event, keyword) {
+            event.stopPropagation(); // 阻止事件冒泡
+            fetch('/delete_interest', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({keyword})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    // 从DOM中移除该关键词标签
+                    event.target.closest('.keyword-badge').remove();
+                    
+                    // 显示操作成功的提示
+                    const toast = new bootstrap.Toast(document.getElementById('saveToast'));
+                    const toastBody = document.querySelector('#saveToast .toast-body');
+                    toastBody.textContent = '关键词已删除';
+                    toastBody.classList.add('text-success');
+                    toast.show();
+                }
+            });
+        }
+        
+        // 初始化加载时直接使用数组
+        fetch('/get_interests')
+            .then(response => response.json())
+            .then(data => {
+                if(data.keywords) {
+                    updateKeywordDisplay(data.keywords);
+                    // 保持输入框兼容旧格式显示
+                    document.getElementById('keywordsInput').value = 
+                        Array.isArray(data.keywords) ? data.keywords : data.keywords;
+                }
+            });
+        function removeKeyword(event) {
+            const keywords = document.getElementById('keywordTags').value;
+            fetch('/delete_interest', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({keywords})
+            })
+            const keywordElement = event.target.closest('.keyword-badge');
+            const keyword = keywordElement.textContent.replace('×', '').trim();
+            // let keywords = document.getElementById('keywordsInput').value
+            //     .split(',')
+            //     .map(k => k.trim())
+            //     .filter(k => k && k !== keyword);
+            
+            // document.getElementById('keywordsInput').value = keywords.join(', ');
+            // updateKeywordDisplay(keywords);
+        }
+
+        function submitKeywords() {
+            const keywords = document.getElementById('keywordsInput').value;
+            fetch('/update_interests', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({keywords})
+            })
+            .then(response => response.json())
+            .then(data => {
+                const toast = new bootstrap.Toast(document.getElementById('saveToast'));
+                const toastBody = document.querySelector('#saveToast .toast-body');
+                if(data.success) {
+                    toastBody.textContent = '偏好保存成功！';
+                    toastBody.classList.add('text-success');
+                    updateKeywordDisplay(keywords);
+                } else {
+                    toastBody.textContent = '保存失败：' + data.message;
+                    toastBody.classList.add('text-danger');
+                }
+                toast.show();
+            });
         }
     </script>
 </body>
