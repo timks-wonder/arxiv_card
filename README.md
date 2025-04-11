@@ -49,5 +49,27 @@
 
 1. 克隆仓库：
 ```bash
-git clone https://github.com/your-repo/arxiv_card.git
+git clone https://github.com/timks-wonder/arxiv_card.git
 cd arxiv_card
+```
+
+2. 创建虚拟环境并激活：
+```bash
+conda create -n arxiv_card python=3.10
+conda activate arxiv_card
+```
+
+3. 安装依赖：
+```bash
+pip install -r requirements.txt
+```
+
+4. 爬取论文数据：
+```bash
+python create_papers.py
+```
+
+5. 启动服务：
+```bash
+python app.py
+```
