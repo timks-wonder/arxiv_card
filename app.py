@@ -21,7 +21,7 @@ def login_required(f):
 @login_required  # 添加装饰器
 def index():
     print('username:', session.get('username'))
-    return render_template('browse.html', username=session['username'])
+    return render_template('home.html', username=session['username'])
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001)
