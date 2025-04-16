@@ -1,5 +1,5 @@
 /pipeline.pptx
-/user_data
+/user_data/user*
 /arxiv_data
 /__pycache__
 /main1.ipynb
@@ -10,3 +10,8 @@
 /test.ipynb
 /utils.py
 /routes/__pycache__
+/.vscode
+/templates/browse_1.html
+/templates/browse_2.html
+/templates/login_1.html
+/.DS_Store
