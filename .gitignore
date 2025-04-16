@@ -16,3 +16,4 @@
 /templates/login_1.html
 /.DS_Store
 /api.txt
+/static/pdfjs

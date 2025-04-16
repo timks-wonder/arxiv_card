@@ -65,7 +65,7 @@ def register():
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
-        return render_template('login_.html')
+        return render_template('login.html')
     
     try:
         username = request.form.get('username', '')

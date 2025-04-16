@@ -23,7 +23,29 @@ def login_required(f):
 @login_required  # 添加装饰器
 def index():
     print('username:', session.get('username'))
-    return render_template('browser.html', username=session['username'])
+    return render_template('browse.html', 
+                         username=session['username'],
+                         base_url=base_url,
+                         port=port)  # 新增port参数
+
+@app.route('/proxy/pdf')
+def proxy_pdf():
+    import requests
+    from flask import request, Response
+    
+    pdf_url = request.args.get('url')
+    response = requests.get(pdf_url, stream=True)
+    
+    return Response(
+        response.iter_content(chunk_size=1024),
+        content_type=response.headers['Content-Type'],
+        headers={
+            'Content-Disposition': response.headers.get('Content-Disposition', 'inline'),
+            'Access-Control-Allow-Origin': '*'
+        }
+    )
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+    base_url = '127.0.0.1'
+    port = 5001  # 将端口定义为变量
+    app.run(host=base_url, port=port)

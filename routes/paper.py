@@ -138,18 +138,17 @@ def handle_dislike():
     behave_log(data, is_like=False)
     return jsonify({'status': 'success'})
 
-
 @bp.route('/browse')
 def browse():
-    return render_template('browser__.html', username=session['username'])
+    return render_template('browse.html', username=session['username'])
 
 # 在文件顶部添加缓存变量
 translation_models = {}
 
 # 删除原有的translation_models缓存变量
 # 添加腾讯云配置（建议放到配置文件中）
-TENCENT_SECRET_ID = "YOUR_SECRET_ID"
-TENCENT_SECRET_KEY = "YOUR_SECRET_KEY"
+TENCENT_SECRET_ID = "AKIDTs5XxBCB6rRozzlKhzDG6rYBcppdFG3f"
+TENCENT_SECRET_KEY = "ShkcHjyCF5h5IIwOehX9ZrwoTwCF5lTk"
 TENCENT_REGION = "ap-shanghai"
 
 @bp.route('/translate', methods=['POST'])

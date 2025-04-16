@@ -115,20 +115,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- 修改PDF预览部分 -->
-                    <div class="mt-3">
-                        <button class="btn btn-primary mb-2" @click="togglePdfPreview(paper)">
-                            <template v-if="paper.showPdf">PDF</template>
-                            <template v-else>PDF</template>
-                        </button>
-                        <div v-if="paper.showPdf">
-                            <iframe 
-                                class="pdf-iframe" 
-                                :src="`/static/pdfjs/web/viewer.html?file=${encodeURIComponent('/proxy/pdf?url=' + encodeURIComponent(paper.url.replace('abs', 'pdf') + '.pdf'))}`"
-                                style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px;">
-                            </iframe>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div v-else class="text-center py-5">
@@ -137,8 +123,7 @@
         </div>
     </div>
     <script>
-        const URL = "http://{{ base_url }}:{{ port }}";
-        console.log(URL);
+        const URL = "{{ base_url }}:{{ port }}";
         const {createApp} = Vue;
     
         createApp({
@@ -209,11 +194,10 @@
                         const newPapers = papers.slice(0, count).map(paper => ({
                             ...paper,
                             expanded: false,
-                            showPdf: false,  // 新增PDF预览状态
-                            translatedTitle: '',
+                            translatedTitle: '', // 确保初始化字段
                             translatedSummary: ''
                         }));
-    
+                        
                         this.papers.push(...newPapers);
     
                         // 为每篇论文启动翻译
@@ -233,10 +217,6 @@
                 },
                 toggleSummary(paper) {
                     paper.expanded = !paper.expanded;
-                },
-                togglePdfPreview(paper) {
-                    paper.showPdf = !paper.showPdf;
-                    this.$forceUpdate();
                 },
                 async handleAction(paper, actionType) {
                     const paperIndex = paper.id
