@@ -148,8 +148,8 @@ translation_models = {}
 
 # 删除原有的translation_models缓存变量
 # 添加腾讯云配置（建议放到配置文件中）
-TENCENT_SECRET_ID = "your_secret_id"
-TENCENT_SECRET_KEY = "your_secret_key"
+TENCENT_SECRET_ID = "YOUR_SECRET_ID"
+TENCENT_SECRET_KEY = "YOUR_SECRET_KEY"
 TENCENT_REGION = "ap-shanghai"
 
 @bp.route('/translate', methods=['POST'])
