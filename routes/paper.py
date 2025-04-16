@@ -10,13 +10,15 @@ from pathlib import Path
 
 from .rank import rank_papers
 from .recall import recall_with_defaults
-import argostranslate.package
-import argostranslate.translate
+import json
 
 bp = Blueprint('paper', __name__, url_prefix='/api')
 
-# # CSV文件路径
-# DATA_PATH = Path(__file__).parent.parent / 'arxiv_data/arxiv_samples.csv'
+from tencentcloud.common import credential
+from tencentcloud.common.profile.client_profile import ClientProfile
+from tencentcloud.common.profile.http_profile import HttpProfile
+from tencentcloud.tmt.v20180321 import tmt_client, models
+from tencentcloud.common.exception.tencent_cloud_sdk_exception import TencentCloudSDKException
 
 @bp.route('/papers')
 def get_papers():
@@ -26,8 +28,6 @@ def get_papers():
         rank_papers(user_id=int(user_id), k=100)
         data_path = Path(__file__).parent.parent / f'user_data/user_{user_id}/arxiv_recall_samples.csv'
         df = pd.read_csv(data_path)
-        # if len(filtered_df) < 90:
-        #     pass
         
         papers = [{
             'id': row.id,
@@ -146,6 +146,12 @@ def browse():
 # 在文件顶部添加缓存变量
 translation_models = {}
 
+# 删除原有的translation_models缓存变量
+# 添加腾讯云配置（建议放到配置文件中）
+TENCENT_SECRET_ID = "REMOVED_SECRET"
+TENCENT_SECRET_KEY = "REMOVED_SECRET"
+TENCENT_REGION = "ap-shanghai"
+
 @bp.route('/translate', methods=['POST'])
 def translate_text():
     try:
@@ -154,29 +160,36 @@ def translate_text():
         from_code = data.get('from', 'en')
         to_code = data.get('to', 'zh')
         
-        # 检查缓存中是否有模型
-        model_key = f"{from_code}-{to_code}"
-        if model_key not in translation_models:
-            argostranslate.package.update_package_index()
-            available_packages = argostranslate.package.get_available_packages()
-            package_to_install = next(
-                filter(
-                    lambda x: x.from_code == from_code and x.to_code == to_code, 
-                    available_packages
-                )
-            )
-            argostranslate.package.install_from_path(package_to_install.download())
-            # 缓存加载的模型
-            translation_models[model_key] = argostranslate.translate.get_translation_from_codes(from_code, to_code)
+        # 初始化腾讯云客户端
+        cred = credential.Credential(TENCENT_SECRET_ID, TENCENT_SECRET_KEY)
+        http_profile = HttpProfile()
+        http_profile.endpoint = "tmt.tencentcloudapi.com"
         
-        translated_text = translation_models[model_key].translate(text)
+        client_profile = ClientProfile()
+        client_profile.httpProfile = http_profile
+        client = tmt_client.TmtClient(cred, TENCENT_REGION, client_profile)
+        
+        # 构建请求参数
+        params = {
+            "SourceText": text,
+            "Source": from_code,
+            "Target": to_code,
+            "ProjectId": 0
+        }
+        req = models.TextTranslateRequest()
+        req.from_json_string(json.dumps(params))
+        
+        # 调用API
+        resp = client.TextTranslate(req)
         return jsonify({
             'original': text,
-            'translated': translated_text,
+            'translated': resp.TargetText,
             'from': from_code,
             'to': to_code
         })
+    except TencentCloudSDKException as e:
+        return jsonify({'error': f"腾讯云翻译错误: {str(e)}"}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f"翻译服务异常: {str(e)}"}), 500
 
 

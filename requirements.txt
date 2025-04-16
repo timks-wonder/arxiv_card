@@ -7,4 +7,4 @@ scikit-learn==1.6.1
 sentence-transformers==4.0.2
 tqdm==4.64.1
 transformers==4.50.3
-argostranslategui
+tencentcloud-sdk-python==3.0.633
