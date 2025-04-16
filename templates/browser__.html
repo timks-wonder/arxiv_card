@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.min.js"></script>
+    <style>
+        body {
+            background: url('/static/images/bg.jpg') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+        }
+        .navbar_1 {
+            margin: 1rem auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+            background-color: rgba(255, 255, 255, 0.7)
+        }
+        .paper-card {
+            margin: 1rem auto;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+            background-color: rgba(255, 255, 255, 0.7)
+        }
+        .paper-card:hover {
+            transform: translateY(-3px);
+        }
+        .action-button {
+            margin: auto auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+        }
+        .summary-container {
+            position: relative;
+        }
+        .summary-content {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            transition: all 0.3 ease;
+            margin-bottom: 0.5rem;
+        }
+        .summary-content.expanded {
+            -webkit-line-clamp: unset;
+        }
+        .btn-expand {
+            padding: 0;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container py-4">
+            <nav class="navbar navbar_1 mb-4 rounded">
+                <div class="container-fluid">
+                    <span class="navbar-brand">arXiv Cards</span>
+                    <div class="d-flex">
+                        <span class="navbar-text me-2">欢迎，<span v-text="username"></span></span>
+                        <span id="userId" style="display: none" v-text="userId"></span>
+                        <button class="btn shadow-sm me-2" @click="goHome()">我的</button>
+                        <button class="btn shadow-sm" @click="logout()">退出</button>
+                    </div>
+                </div>
+            </nav>
+            <h3 class="mb-4">论文推荐</h3>
+            <div id="paperContainer" v-if="papers.length > 0">
+                <div v-for="paper in papers" :key="paper.id" class="paper-card">
+                    <div class="row">
+                        <!-- 左半部分 -->
+                        <div class="col-md-6 border-end">
+                            <h5><a :href="paper.url" target="_blank" v-text="paper.title"></a></h5>
+                            <div class="text-muted mb-2">作者: <span v-text="paper.authors"></span></div>
+                            <div class="text-muted mb-2 d-flex align-items-center">
+                                <span class="badge bg-secondary me-2" v-text="paper.categories"></span>
+                                <small class="text-muted">发布时间：<span v-text="formatDate(paper.published)"></span></small>
+                            </div>
+                            <div class="summary-container">
+                                <p class="text-secondary summary-content" :class="{expanded: paper.expanded}">
+                                    摘要：<span v-text="paper.summary"></span>
+                                </p>
+                                <button class="btn btn-link btn-sm p-0" @click="toggleSummary(paper)">
+                                    <template v-if="paper.expanded">收起</template>
+                                    <template v-else>展开</template>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 右半部分 - 翻译内容 -->
+                        <div class="col-md-6">
+                            <h5><a :href="paper.url" target="_blank" v-text="paper.translatedTitle || '...'"></a></h5>
+                            <div class="text-muted mb-2">作者: <span v-text="paper.authors"></span></div>
+                            <div class="text-muted mb-2 d-flex align-items-center">
+                                <span class="badge bg-secondary me-2" v-text="paper.categories"></span>
+                                <small class="text-muted">发布时间：<span v-text="formatDate(paper.published)"></span></small>
+                            </div>
+                            <div class="summary-container">
+                                <p class="text-secondary summary-content" :class="{expanded: paper.expanded}">
+                                    摘要：<span v-text="paper.translatedSummary || '...'"></span>
+                                </p>
+                                <div class="action-buttons d-flex justify-content-end">
+                                    <button class="btn btn-secondary me-2" title="dislike" data-bs-toggle="tooltip" 
+                                            @click="handleAction(paper, 'dislike')">👎</button>
+                                    <button class="btn btn-danger" title="like" data-bs-toggle="tooltip" 
+                                            @click="handleAction(paper, 'like')">👍</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="text-center py-5">
+                <p class="text-muted">暂无推荐论文，请稍后再试</p>
+            </div>
+        </div>
+    </div>
+    <script>
+        const base_url = "http://localhost:5001/"
+        const {createApp} = Vue;
+    
+        createApp({
+            data() {
+                return {
+                    username: "{{username}}",
+                    userId: "{{session.user_id}}",
+                    papers: [],
+                    loadingTranslations: false // 新增加载状态
+                }
+            },
+            mounted() {
+                this.loadNewPapers(3);
+                this.initTooltips();
+            },
+            methods: {
+                goHome() {
+                    window.location.href = "/home/gohome";
+                },
+                logout() {
+                    fetch("/auth/logout", { method: "POST" })
+                    .then(() => {window.location.href = "/auth/login";})
+                },
+                async translatePaper(paper) {
+                    try {
+                        // 翻译标题
+                        const titleResponse = await fetch(`${base_url}/api/translate`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                text: paper.title,
+                                from: 'en',
+                                to: 'zh'
+                            })
+                        });
+                        const titleData = await titleResponse.json();
+                        
+                        // 翻译摘要
+                        const summaryResponse = await fetch(`${base_url}/api/translate`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                text: paper.summary,
+                                from: 'en',
+                                to: 'zh'
+                            })
+                        });
+                        const summaryData = await summaryResponse.json();
+    
+                        // 直接赋值代替$set
+                        paper.translatedTitle = titleData.translated;
+                        paper.translatedSummary = summaryData.translated;
+                        
+                    } catch (error) {
+                        console.error('翻译失败:', error);
+                        // 如果翻译失败，显示原文
+                        paper.translatedTitle = paper.title;
+                        paper.translatedSummary = paper.summary;
+                    }
+                },
+    
+                async loadNewPapers(count) {
+                    try {
+                        this.loadingTranslations = true;
+                        const response = await fetch(`${base_url}/api/papers?user_id=${this.userId}`);
+                        const papers = await response.json();
+    
+                        const newPapers = papers.slice(0, count).map(paper => ({
+                            ...paper,
+                            expanded: false,
+                            translatedTitle: '', // 确保初始化字段
+                            translatedSummary: ''
+                        }));
+                        
+                        this.papers.push(...newPapers);
+    
+                        // 为每篇论文启动翻译
+                        for (const paper of newPapers) {
+                            await this.translatePaper(paper);
+                            // 添加强制更新
+                            this.$forceUpdate(); // 新增这行
+                            await fetch(`${base_url}/api/viewed?user_id=${this.userId}&paper_id=${paper.id}`);
+                        }
+                    }
+                    catch (error) {
+                        console.error("Error loading new papers:", error);
+                    }
+                },
+                formatDate(dateString) {
+                    return new Date(dateString).toLocaleDateString();
+                },
+                toggleSummary(paper) {
+                    paper.expanded = !paper.expanded;
+                },
+                async handleAction(paper, actionType) {
+                    const paperIndex = paper.id
+
+                    try {
+                        await fetch(`${base_url}/api/${actionType}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                user_id: this.userId,
+                                paper_id: paperIndex,
+                                summary_embeddings: paper.summary_embeddings,
+                            }),
+                        });
+
+                        this.papers = this.papers.filter(p => p.id !== paperIndex);
+                        this.loadNewPapers(1);
+                    }
+                    catch (error) {
+                        console.error(`Error ${actionType} paper:`, error);
+                    }
+                },
+                initTooltips() {
+                    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.forEach(function(tooltipTriggerEl) {
+                        new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                }
+            }
+        }).mount("#app");
+    </script>
+</body>
+</html>

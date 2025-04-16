@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>arXiv Cards</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.min.js"></script>
+    <style>
+        body {
+            background: '/Users/xiangjincheng/Desktop/bg.jpg' no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+        }
+        .paper-card {
+            margin: 1rem auto;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            background-color: black;
+        }
+        .paper-card:hover {
+            transform: translateY(-3px);
+        }
+        .action-buttons {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+        .summary-container {
+            position: relative;
+        }
+        .summary-content {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            margin-bottom: 0.5rem;
+        }
+        .summary-content.expanded {
+            -webkit-line-clamp: unset;
+            display: block;
+        }
+        .btn-expand {
+            padding: 0;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container py-4">
+            <nav class="navbar navbar-light bg-light mb-4 rounded">
+                <div class="container-fluid">
+                    <span class="navbar-brand">arXiv Cards</span>
+                    <div class="d-flex">
+                        <!-- 修改用户名显示部分 -->
+                        <span class="navbar-text me-3">
+                            欢迎，<span v-text="username"></span>
+                            <span id="userId" style="display:none" v-text="userId"></span>
+                        </span>
+                    </div>
+                </div>
+            </nav>
+            
+            <h3 class="mb-4">论文推荐</h3>
+            <!-- 在paperContainer中添加动态渲染 -->
+            <div id="paperContainer" v-if="papers.length > 0">
+                <!-- 原有v-for循环内容 -->
+                 <div v-for="paper in papers" 
+                     :key="paper.id" 
+                     class="paper-card"
+                     :style="{ opacity: paper.processing ? 0.5 : 1 }">
+                     
+                    <h5><a :href="paper.url" target="_blank" v-text="paper.title"></a></h5>
+                    <div class="text-muted mb-2">作者：<span v-text="paper.authors"></div>
+                    <div class="text-muted mb-2 d-flex align-items-center">
+                        <span class="badge bg-secondary me-2" v-text="paper.categories"></span>
+                        <small class="text-muted">发布于：<span v-text="formatDate(paper.published)"></span></small>
+                    </div>
+                    <div class="summary-container">
+                        <p class="text-secondary summary-content" 
+                           :class="{expanded: paper.expanded}">
+                            摘要：<span v-text="paper.summary">
+                        </p>
+                        <button class="btn btn-link btn-sm p-0" @click="toggleSummary(paper)">
+                            <template v-if="paper.expanded">收起</template>
+                            <template v-else>展开</template>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="text-center py-5">
+                <p class="text-muted">暂无推荐论文，请稍后再试</p>
+            </div>
+    </div>
+
+    <script>
+        
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    username: '{{ username }}',
+                    userId: '{{ session.user_id }}',
+                    papers: []
+                }
+            },
+            mounted() {
+                this.loadNewPapers(3);
+                this.initTooltips();
+            },
+            methods: {
+                goToHome() {
+                    window.location.href = '/';
+                },
+                logout() {
+                    fetch('/auth/logout', { method: 'POST' })
+                        .then(() => window.location.href = '/auth/login');
+                },
+                async loadNewPapers(count) {
+                    try {
+                        const response = await fetch(`http://localhost:5001/api/papers?user_id=${this.userId}`);
+                        const papers = await response.json();
+                        
+                        // 直接使用API返回的最新论文列表
+                        const newPapers = papers.slice(0, count).map(paper => ({
+                            ...paper,
+                            expanded: false
+                        }));
+                        
+                        // 批量添加论文（Vue会自动更新DOM）
+                        this.papers = [...this.papers, ...newPapers];
+                        
+                        // 保持原版执行顺序：先创建卡片，后标记已读
+                        for (const paper of newPapers) {
+                            await fetch(`http://localhost:5001/api/viewed?user_id=${this.userId}&paper_id=${paper.id}`);
+                        }
+                        
+                        // 保持最少显示数量逻辑
+                        if (this.papers.length < count) {
+                            await this.loadNewPapers(1);
+                        }
+                    } catch (error) {
+                        console.error('获取论文失败:', error);
+                    }
+                },
+                formatDate(dateString) {
+                    return new Date(dateString).toLocaleDateString();
+                },
+                toggleSummary(paper) {
+                    paper.expanded = !paper.expanded;
+                },
+                async handleAction(paper, actionType) {
+                    const paperIndex = this.papers.findIndex(p => p.id === paper.id);
+                    this.papers[paperIndex].processing = true;
+                    
+                    try {
+                        await fetch(`http://localhost:5001/api/${actionType}`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ 
+                                user_id: this.userId,
+                                paper_id: paper.id, 
+                                summary_embeddings: paper.summary_embeddings
+                            })
+                        });
+                        
+                        // 移除当前论文并加载新论文
+                        this.papers = this.papers.filter(p => p.id !== paper.id);
+                        this.loadNewPapers(1);
+                    } catch (error) {
+                        console.error('操作失败:', error);
+                        this.papers[paperIndex].processing = false;
+                    }
+                },
+                initTooltips() {
+                    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.forEach(function(tooltipTriggerEl) {
+                        new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
