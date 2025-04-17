@@ -11,9 +11,6 @@
 /utils.py
 /routes/__pycache__
 /.vscode
-/templates/browse_1.html
-/templates/browse_2.html
-/templates/login_1.html
 /.DS_Store
 /api.txt
 /static/pdfjs

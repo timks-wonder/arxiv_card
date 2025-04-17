@@ -24,7 +24,10 @@ from tencentcloud.common.exception.tencent_cloud_sdk_exception import TencentClo
 def get_papers():
     try:
         user_id = (request.args.get('user_id'))
-        recall_with_defaults(user_id=int(user_id), K=1000)
+        start_date = request.args.get('start_date', None)  # 默认为None
+        end_date = request.args.get('end_date', None)      # 默认为None
+
+        recall_with_defaults(user_id=int(user_id), K=1000, start_date=start_date, end_date=end_date)
         rank_papers(user_id=int(user_id), k=100)
         data_path = Path(__file__).parent.parent / f'user_data/user_{user_id}/arxiv_recall_samples.csv'
         df = pd.read_csv(data_path)
@@ -149,6 +152,8 @@ translation_models = {}
 # 添加腾讯云配置（建议放到配置文件中）
 TENCENT_SECRET_ID = "YOUR_SECRET_ID"
 TENCENT_SECRET_KEY = "YOUR_SECRET_KEY"
+# TENCENT_SECRET_ID = "AKIDTs5XxBCB6rRozzlKhzDG6rYBcppdFG3f"
+# TENCENT_SECRET_KEY = "ShkcHjyCF5h5IIwOehX9ZrwoTwCF5lTk"
 TENCENT_REGION = "ap-shanghai"
 
 @bp.route('/translate', methods=['POST'])
@@ -159,8 +164,31 @@ def translate_text():
         from_code = data.get('from', 'en')
         to_code = data.get('to', 'zh')
         
+        user_id = data.get('user_id')  # 从请求体中获取user_id
+        config_path = Path(__file__).parent.parent / f'user_data/user_{user_id}/tencent_config.csv'
+        
+        if not config_path.exists():
+            return jsonify({
+                'original': text,
+                'translated': '',
+                'from': from_code,
+                'to': to_code
+            })
+            
+        df = pd.read_csv(config_path)
+        secret_id = df.iloc[0]['secret_id']
+        secret_key = df.iloc[0]['secret_key']
+        
+        if not secret_id or not secret_key:
+            return jsonify({
+                'original': text,
+                'translated': '',
+                'from': from_code,
+                'to': to_code
+            })
+        
         # 初始化腾讯云客户端
-        cred = credential.Credential(TENCENT_SECRET_ID, TENCENT_SECRET_KEY)
+        cred = credential.Credential(secret_id, secret_key)
         http_profile = HttpProfile()
         http_profile.endpoint = "tmt.tencentcloudapi.com"
         

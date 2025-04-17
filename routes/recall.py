@@ -7,6 +7,8 @@ from time import time
 def recall_with_defaults(
     user_id: int = 1,
     K: int = 1000,
+    start_date: str = None,
+    end_date: str = None,
     user_path: str = 'user_data/users.csv',
     paper_path: str = 'arxiv_data/arxiv_cv_papers.csv',
     output_dir: str = 'user_data'
@@ -16,6 +18,8 @@ def recall_with_defaults(
     Args:
         user_id: 用户ID，默认为1
         K: 召回数量，默认1000
+        start_date: 开始日期(YYYY-MM-DD)，可选
+        end_date: 结束日期(YYYY-MM-DD)，可选
         user_path: 用户数据路径
         paper_path: 论文数据路径
         output_dir: 输出目录
@@ -36,6 +40,14 @@ def recall_with_defaults(
     user_df = pd.read_csv(user_path)
     # 读取论文数据
     paper_df = pd.read_csv(paper_path)
+    
+    # 添加日期筛选
+    if start_date or end_date:
+        paper_df['published'] = pd.to_datetime(paper_df['published'])
+        if start_date:
+            paper_df = paper_df[paper_df['published'] >= pd.to_datetime(start_date)]
+        if end_date:
+            paper_df = paper_df[paper_df['published'] <= pd.to_datetime(end_date)]
     
     user_emb_bytes = eval(user_df.loc[user_df['id'] == user_id, 'user_embedding'].values[0])
     user_embeddings = np.frombuffer(user_emb_bytes, dtype=np.float32)

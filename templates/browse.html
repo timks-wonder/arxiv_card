@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.min.js"></script>
     <style>
         body {
-            background: url('/static/images/bg.jpg') no-repeat center center fixed;
+            background: url('/user_data/user_{{ session.user_id }}/bg.jpg') no-repeat center center fixed;
             background-size: cover;
             min-height: 100vh;
         }
@@ -70,12 +70,29 @@
                     </div>
                 </div>
             </nav>
-            <h3 class="mb-4">论文推荐</h3>
+            <h3 class="mb-4 d-flex align-items-center justify-content-between">
+                <span>论文推荐</span>
+                <div class="d-flex align-items-center">
+                    <!-- 添加搜索框 -->
+                    <div class="input-group me-3" style="width: 250px;">
+                        <input type="text" class="form-control" placeholder="搜索论文..." v-model="searchQuery">
+                        <button class="btn btn-primary" type="button" @click="handleSearch">🔍
+                        </button>
+                    </div>
+                    
+                    <!-- 原有日期筛选控件 -->
+                    <input type="date" v-model="startDate" class="form-control me-2" style="width: 150px;">
+                    <span class="align-self-center me-2">至</span>
+                    <input type="date" v-model="endDate" class="form-control me-2" style="width: 150px;">
+                    <button class="btn btn-primary" @click="filterByDate">筛选</button>
+                </div>
+            </h3>
+            
             <div id="paperContainer" v-if="papers.length > 0">
                 <div v-for="paper in papers" :key="paper.id" class="paper-card">
                     <div class="row">
-                        <!-- 左半部分 -->
-                        <div class="col-md-6 border-end">
+                        <!-- 左半部分 - 根据是否有翻译内容动态调整宽度 -->
+                        <div :class="{'col-md-12': !paper.translatedTitle && !paper.translatedSummary, 'col-md-6 border-end': paper.translatedTitle || paper.translatedSummary}">
                             <h5><a :href="paper.url" target="_blank" v-text="paper.title"></a></h5>
                             <div class="text-muted mb-2">作者: <span v-text="paper.authors"></span></div>
                             <div class="text-muted mb-2 d-flex align-items-center">
@@ -90,12 +107,17 @@
                                     <template v-if="paper.expanded">收起</template>
                                     <template v-else>展开</template>
                                 </button>
-                                
+                                <div class="action-buttons d-flex justify-content-end" v-if="!paper.translatedTitle && !paper.translatedSummary">
+                                    <button class="btn btn-secondary me-2" title="dislike" data-bs-toggle="tooltip" 
+                                            @click="handleAction(paper, 'dislike')">👎</button>
+                                    <button class="btn btn-danger" title="like" data-bs-toggle="tooltip" 
+                                            @click="handleAction(paper, 'like')">👍</button>
+                                </div>
                             </div>
                         </div>
                         
                         <!-- 右半部分 - 翻译内容 -->
-                        <div class="col-md-6">
+                        <div class="col-md-6" v-if="paper.translatedTitle || paper.translatedSummary">
                             <h5><a :href="paper.url" target="_blank" v-text="paper.translatedTitle || '...'"></a></h5>
                             <div class="text-muted mb-2">作者: <span v-text="paper.authors"></span></div>
                             <div class="text-muted mb-2 d-flex align-items-center">
@@ -138,6 +160,7 @@
     </div>
     <script>
         const URL = "http://{{ base_url }}:{{ port }}";
+        const num_papers_show = 3;
         console.log(URL);
         const {createApp} = Vue;
     
@@ -147,16 +170,20 @@
                     username: "{{username}}",
                     userId: "{{session.user_id}}",
                     papers: [],
-                    loadingTranslations: false // 新增加载状态
+                    loadingTranslations: false,
+                    startDate: '', // 筛选开始日期
+                    endDate: '',   // 筛选结束日期
+                    filterParams: {}, // 新增筛选参数存储
+                    searchQuery: '' // 新增搜索关键词
                 }
             },
             mounted() {
-                this.loadNewPapers(3);
+                this.loadNewPapers(num_papers_show);
                 this.initTooltips();
             },
             methods: {
                 goHome() {
-                    window.location.href = "/home/gohome";
+                    window.location.href = `/home/gohome?base_url=${encodeURIComponent("{{ base_url }}")}&port=${encodeURIComponent("{{ port }}")}`;
                 },
                 logout() {
                     fetch("/auth/logout", { method: "POST" })
@@ -171,7 +198,8 @@
                             body: JSON.stringify({
                                 text: paper.title,
                                 from: 'en',
-                                to: 'zh'
+                                to: 'zh',
+                                user_id: this.userId  // 新增用户ID参数
                             })
                         });
                         const titleData = await titleResponse.json();
@@ -183,7 +211,8 @@
                             body: JSON.stringify({
                                 text: paper.summary,
                                 from: 'en',
-                                to: 'zh'
+                                to: 'zh',
+                                user_id: this.userId  // 新增用户ID参数
                             })
                         });
                         const summaryData = await summaryResponse.json();
@@ -203,7 +232,15 @@
                 async loadNewPapers(count) {
                     try {
                         this.loadingTranslations = true;
-                        const response = await fetch(`${URL}/api/papers?user_id=${this.userId}`);
+                        
+                        let url = `${URL}/api/papers?user_id=${this.userId}`;
+                        if (this.filterParams.start_date) {
+                            url += `&start_date=${this.filterParams.start_date}`;
+                        }
+                        if (this.filterParams.end_date) {
+                            url += `&end_date=${this.filterParams.end_date}`;
+                        }
+                        const response = await fetch(url);
                         const papers = await response.json();
     
                         const newPapers = papers.slice(0, count).map(paper => ({
@@ -215,7 +252,11 @@
                         }));
     
                         this.papers.push(...newPapers);
-    
+                        // 如果论文数量超过3篇，移除最早的论文
+                        if (this.papers.length > num_papers_show) {
+                            this.papers = this.papers.slice(-num_papers_show);
+                        }
+
                         // 为每篇论文启动翻译
                         for (const paper of newPapers) {
                             await this.translatePaper(paper);
@@ -257,6 +298,19 @@
                     }
                     catch (error) {
                         console.error(`Error ${actionType} paper:`, error);
+                    }
+                },
+                filterByDate() {
+                    this.filterParams = {
+                        start_date: this.startDate,
+                        end_date: this.endDate
+                    };
+                    this.papers = [];
+                    this.loadNewPapers(num_papers_show);
+                },
+                handleSearch() {
+                    if(this.searchQuery.trim()) {
+                        window.location.href = `/search.html?q=${encodeURIComponent(this.searchQuery)}`;
                     }
                 },
                 initTooltips() {

@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.min.js"></script>
     <style>
         body {
-            background: url('/static/images/bg.jpg') no-repeat center center fixed;
+            background: url('/user_data/user_{{ session.user_id }}/bg.jpg') no-repeat center center fixed;
             background-size: cover;
             min-height: 100vh;
         }
@@ -70,9 +70,20 @@
                     </div>
                 </div>
             </nav>
-            <h3 class="mb-4">论文推荐</h3>
+            <h3 class="mb-4 d-flex align-items-center justify-content-between">
+                <span>搜索结果</span>
+                <div class="d-flex align-items-center">
+                    <!-- 保留搜索框 -->
+                    <div class="input-group me-3" style="width: 250px;">
+                        <input type="text" class="form-control" placeholder="搜索论文..." v-model="searchQuery">
+                        <button class="btn btn-primary" type="button" @click="handleSearch">🔍</button>
+                    </div>
+                </div>
+            </h3>
+            
             <div id="paperContainer" v-if="papers.length > 0">
                 <div v-for="paper in papers" :key="paper.id" class="paper-card">
+                    <!-- 保持与browse.html相同的论文卡片结构 -->
                     <div class="row">
                         <!-- 左半部分 -->
                         <div class="col-md-6 border-end">
@@ -90,7 +101,6 @@
                                     <template v-if="paper.expanded">收起</template>
                                     <template v-else>展开</template>
                                 </button>
-                                
                             </div>
                         </div>
                         
@@ -115,15 +125,32 @@
                             </div>
                         </div>
                     </div>
+                    <!-- PDF预览部分 -->
+                    <div class="mt-3">
+                        <button class="btn btn-primary mb-2" @click="togglePdfPreview(paper)">
+                            <template v-if="paper.showPdf">PDF</template>
+                            <template v-else>PDF</template>
+                        </button>
+                        <div v-if="paper.showPdf">
+                            <iframe 
+                                class="pdf-iframe" 
+                                :src="`/static/pdfjs/web/viewer.html?file=${encodeURIComponent('/proxy/pdf?url=' + encodeURIComponent(paper.url.replace('abs', 'pdf') + '.pdf'))}`"
+                                style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px;">
+                            </iframe>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div v-else class="text-center py-5">
-                <p class="text-muted">暂无推荐论文，请稍后再试</p>
+                <p class="text-muted">暂无搜索结果，请尝试其他关键词</p>
             </div>
         </div>
     </div>
     <script>
-        const URL = "{{ base_url }}:{{ port }}";
+        // 优先使用模板变量，如果没有再从URL获取
+        const base_url = "{{ base_url }}" || new URLSearchParams(window.location.search).get('base_url') || 'localhost';
+        const port = "{{ port }}" || new URLSearchParams(window.location.search).get('port') || '5000';
+        const URL = `http://${base_url}:${port}`;
         const {createApp} = Vue;
     
         createApp({
@@ -132,11 +159,12 @@
                     username: "{{username}}",
                     userId: "{{session.user_id}}",
                     papers: [],
-                    loadingTranslations: false // 新增加载状态
+                    loadingTranslations: false,
+                    searchQuery: new URLSearchParams(window.location.search).get('q') || ''
                 }
             },
             mounted() {
-                this.loadNewPapers(3);
+                this.loadSearchResults();
                 this.initTooltips();
             },
             methods: {
@@ -149,7 +177,6 @@
                 },
                 async translatePaper(paper) {
                     try {
-                        // 翻译标题
                         const titleResponse = await fetch(`${URL}/api/translate`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -161,7 +188,6 @@
                         });
                         const titleData = await titleResponse.json();
                         
-                        // 翻译摘要
                         const summaryResponse = await fetch(`${URL}/api/translate`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -173,43 +199,42 @@
                         });
                         const summaryData = await summaryResponse.json();
     
-                        // 直接赋值代替$set
                         paper.translatedTitle = titleData.translated;
                         paper.translatedSummary = summaryData.translated;
                         
                     } catch (error) {
                         console.error('翻译失败:', error);
-                        // 如果翻译失败，显示原文
                         paper.translatedTitle = paper.title;
                         paper.translatedSummary = paper.summary;
                     }
                 },
-    
-                async loadNewPapers(count) {
+                async loadSearchResults() {
                     try {
                         this.loadingTranslations = true;
-                        const response = await fetch(`${URL}/api/papers?user_id=${this.userId}`);
+                        
+                        if (!this.searchQuery.trim()) return;
+                        
+                        const response = await fetch(`${URL}/api/search?q=${encodeURIComponent(this.searchQuery)}&user_id=${this.userId}`);
                         const papers = await response.json();
     
-                        const newPapers = papers.slice(0, count).map(paper => ({
+                        this.papers = papers.map(paper => ({
                             ...paper,
                             expanded: false,
-                            translatedTitle: '', // 确保初始化字段
+                            showPdf: false,
+                            translatedTitle: '',
                             translatedSummary: ''
                         }));
-                        
-                        this.papers.push(...newPapers);
     
-                        // 为每篇论文启动翻译
-                        for (const paper of newPapers) {
+                        for (const paper of this.papers) {
                             await this.translatePaper(paper);
-                            // 添加强制更新
-                            this.$forceUpdate(); // 新增这行
-                            await fetch(`${URL}/api/viewed?user_id=${this.userId}&paper_id=${paper.id}`);
+                            this.$forceUpdate();
                         }
                     }
                     catch (error) {
-                        console.error("Error loading new papers:", error);
+                        console.error("Error loading search results:", error);
+                    }
+                    finally {
+                        this.loadingTranslations = false;
                     }
                 },
                 formatDate(dateString) {
@@ -218,25 +243,30 @@
                 toggleSummary(paper) {
                     paper.expanded = !paper.expanded;
                 },
+                togglePdfPreview(paper) {
+                    paper.showPdf = !paper.showPdf;
+                    this.$forceUpdate();
+                },
                 async handleAction(paper, actionType) {
-                    const paperIndex = paper.id
-
                     try {
                         await fetch(`${URL}/api/${actionType}`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                                 user_id: this.userId,
-                                paper_id: paperIndex,
+                                paper_id: paper.id,
                                 summary_embeddings: paper.summary_embeddings,
                             }),
                         });
-
-                        this.papers = this.papers.filter(p => p.id !== paperIndex);
-                        this.loadNewPapers(1);
+                        this.papers = this.papers.filter(p => p.id !== paper.id);
                     }
                     catch (error) {
                         console.error(`Error ${actionType} paper:`, error);
+                    }
+                },
+                handleSearch() {
+                    if(this.searchQuery.trim()) {
+                        window.location.href = `/search.html?q=${encodeURIComponent(this.searchQuery)}`;
                     }
                 },
                 initTooltips() {
