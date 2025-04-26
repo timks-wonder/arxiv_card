@@ -13,11 +13,12 @@ def search_papers():
         search = arxiv.Search(
             query=search_query,
             max_results=20,
-            sort_by=arxiv.SortCriterion.SubmittedDate
+            sort_by=arxiv.SortCriterion.Relevance
         )
         
         papers = []
         for result in client.results(search):
+            print(result.get_short_id())  # 打印搜索结果，用于调试
             papers.append({
                 'id': result.get_short_id(),
                 'title': result.title,

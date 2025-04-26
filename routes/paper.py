@@ -1,3 +1,4 @@
+from unicodedata import category
 from flask import Blueprint, jsonify, session, render_template  # 添加render_template
 import pandas as pd
 from pathlib import Path
@@ -7,6 +8,7 @@ from numpy.linalg import norm
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
+import os
 
 from .rank import rank_papers
 from .recall import recall_with_defaults
@@ -26,9 +28,10 @@ def get_papers():
         user_id = (request.args.get('user_id'))
         start_date = request.args.get('start_date', None)  # 默认为None
         end_date = request.args.get('end_date', None)      # 默认为None
+        category = request.args.get('category', None)      # 默认为None
 
-        recall_with_defaults(user_id=int(user_id), K=1000, start_date=start_date, end_date=end_date)
-        rank_papers(user_id=int(user_id), k=100)
+        recall_with_defaults(user_id=int(user_id), K=100, start_date=start_date, end_date=end_date, category=category)
+        rank_papers(user_id=int(user_id), k=3)
         data_path = Path(__file__).parent.parent / f'user_data/user_{user_id}/arxiv_recall_samples.csv'
         df = pd.read_csv(data_path)
         
@@ -40,6 +43,7 @@ def get_papers():
             'published': row.published,
             'summary': row.summary,
             'url': row.url,
+            'liked': row.liked,
             'summary_embeddings': np.frombuffer(eval(row.summary_embeddings)[0], dtype=np.float32).tolist()
         } for _, row in df.head(10).iterrows()]
         return jsonify(papers)
@@ -89,11 +93,23 @@ def add_viewed_record():
 @bp.route('/like', methods=['POST'])
 def handle_like():
     data = request.get_json()
-    user_id = data['user_id']
-    # paper_id = data['paper_id']
+    user_id = int(data['user_id'])
+    paper_id = data['paper_id']
+    category = data['category']
     
-    # # 添加浏览记录
-    # add_viewed_record(user_id, paper_id)
+    # 1. 更新论文点赞数
+    # 读取类别映射文件
+    cls_path = Path(__file__).parent.parent / 'arxiv_data/cls.csv'
+    cls_df = pd.read_csv(cls_path)
+    filename = cls_df[cls_df['category'] == category]['filename'].iloc[0]
+    
+    # 读取对应类别的论文文件
+    papers_path = Path(__file__).parent.parent / f'arxiv_data/{filename}'
+    papers_df = pd.read_csv(papers_path)
+    
+    # 找到对应论文并更新liked
+    papers_df.loc[papers_df['id'] == paper_id, 'liked'] += 1
+    papers_df.to_csv(papers_path, index=False)
     
     from .auth import get_users_df, save_users_df
     df = get_users_df()
@@ -103,7 +119,7 @@ def handle_like():
     user_emb = user['user_embedding']
         
     # 处理embedding更新
-    paper_emb = np.array(eval(data['summary_embeddings']))
+    paper_emb = np.array(data['summary_embeddings'])
     updated_emb = user_emb * 0.9 + paper_emb * 0.1
     user_emb_normalized = updated_emb / norm(updated_emb, 2)
 
@@ -117,7 +133,7 @@ def handle_like():
 @bp.route('/dislike', methods=['POST'])
 def handle_dislike():
     data = request.get_json()
-    user_id = data['user_id']
+    user_id = int(data['user_id'])
     # paper_id = data['paper_id']
     
     # # 添加浏览记录
@@ -131,7 +147,7 @@ def handle_dislike():
     user_emb = user['user_embedding']
         
     # 处理embedding更新
-    paper_emb = np.array(eval(data['summary_embeddings']))
+    paper_emb = np.array(data['summary_embeddings'])
     updated_emb = user_emb * 1.01 - paper_emb * 0.01
     user_emb_normalized = updated_emb / norm(updated_emb, 2)
 
@@ -145,15 +161,6 @@ def handle_dislike():
 def browse():
     return render_template('browse.html', username=session['username'])
 
-# 在文件顶部添加缓存变量
-translation_models = {}
-
-# 删除原有的translation_models缓存变量
-# 添加腾讯云配置（建议放到配置文件中）
-TENCENT_SECRET_ID = "YOUR_SECRET_ID"
-TENCENT_SECRET_KEY = "YOUR_SECRET_KEY"
-# TENCENT_SECRET_ID = "AKIDTs5XxBCB6rRozzlKhzDG6rYBcppdFG3f"
-# TENCENT_SECRET_KEY = "ShkcHjyCF5h5IIwOehX9ZrwoTwCF5lTk"
 TENCENT_REGION = "ap-shanghai"
 
 @bp.route('/translate', methods=['POST'])
@@ -195,7 +202,6 @@ def translate_text():
         client_profile = ClientProfile()
         client_profile.httpProfile = http_profile
         client = tmt_client.TmtClient(cred, TENCENT_REGION, client_profile)
-        
         # 构建请求参数
         params = {
             "SourceText": text,
@@ -219,4 +225,116 @@ def translate_text():
     except Exception as e:
         return jsonify({'error': f"翻译服务异常: {str(e)}"}), 500
 
+@bp.route('/comments', methods=['POST'])
+def add_comment():
+    try:
+        data = request.get_json()
+        user_id = data['user_id']
+        paper_id = data['paper_id']
+        content = data['content']
+        
+        # 评论存储路径
+        comment_path = Path(__file__).parent.parent / 'user_data/comments.csv'
+        
+        # 创建文件如果不存在
+        if not comment_path.exists():
+            pd.DataFrame(columns=['id', 'user_id', 'paper_id', 'content', 'timestamp']).to_csv(comment_path, index=False)
+            
+        df = pd.read_csv(comment_path)
+        
+        # 生成新评论ID
+        new_id = df['id'].max() + 1 if not df.empty and 'id' in df.columns else 1
+        
+        # 添加新评论
+        new_comment = {
+            'id': new_id,
+            'user_id': user_id,
+            'paper_id': paper_id,
+            'content': content,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        df = pd.concat([df, pd.DataFrame([new_comment])], ignore_index=True)
+        df.to_csv(comment_path, index=False)
+        
+        return jsonify({'status': 'success', 'comment': new_comment})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
+@bp.route('/papers/<paper_id>/comments')
+def get_comments(paper_id):
+    try:
+        comment_path = Path(__file__).parent.parent / 'user_data/comments.csv'
+        if not comment_path.exists():
+            return jsonify([])
+            
+        df = pd.read_csv(comment_path)
+        # 添加类型转换
+        df['paper_id'] = df['paper_id'].astype(str)  # 新增代码
+        paper_comments = df[df['paper_id'] == paper_id].to_dict('records')
+        if not paper_comments:
+            return jsonify([])
+        # 关联用户信息
+        users_df = pd.read_csv(Path(__file__).parent.parent / 'user_data/users.csv')
+        users_df['id'] = users_df['id'].astype(int)  # 新增代码
+        for comment in paper_comments:
+            user = users_df[users_df['id'] == int(comment['user_id'])].iloc[0]
+            comment['username'] = user['username']
+        return jsonify(paper_comments)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def get_comment_by_id(comment_id):
+    """根据评论ID获取评论信息"""
+    comment_path = Path(__file__).parent.parent / 'user_data/comments.csv'
+    if not comment_path.exists():
+        return None
+        
+    df = pd.read_csv(comment_path)
+    comment = df[df['id'] == comment_id].to_dict('records')
+    if not comment:
+        return None
+        
+    return comment[0]
+
+def delete_comment_from_db(comment_id):
+    """从数据库删除评论"""
+    comment_path = Path(__file__).parent.parent / 'user_data/comments.csv'
+    if not comment_path.exists():
+        return False
+        
+    df = pd.read_csv(comment_path)
+    # 确保有id列
+    if 'id' not in df.columns:
+        return False
+        
+    # 删除指定评论
+    df = df[df['id'] != comment_id]
+    df.to_csv(comment_path, index=False)
+    return True
+
+@bp.route('/comments/<int:comment_id>', methods=['DELETE'])
+def delete_comment(comment_id):
+    try:
+        data = request.get_json()
+        if not data or 'user_id' not in data:
+            return jsonify({'error': '未提供用户ID'}), 401
+            
+        current_user_id = int(data['user_id'])
+        
+        # 获取评论
+        comment = get_comment_by_id(comment_id)
+        if not comment:
+            return jsonify({'error': '评论不存在'}), 404
+            
+        # 检查评论是否属于当前用户
+        if int(comment['user_id']) != current_user_id:
+            return jsonify({'error': '无权删除他人评论'}), 403
+            
+        # 执行删除操作
+        if delete_comment_from_db(comment_id):
+            return jsonify({'success': True, 'message': '评论删除成功'})
+        else:
+            return jsonify({'error': '删除评论失败'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'服务器错误: {str(e)}'}), 500

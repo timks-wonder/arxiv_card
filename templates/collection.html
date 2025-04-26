@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>arXiv Cards - 论文推荐</title>
+    <title>arXiv Cards - 我的收藏</title>
     <link rel="icon" href="/static/images/logo.png" type="image/jpg">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.min.js"></script>
     <style>
         body {
-            background: url('/user_data/user_{{ session.user_id }}/bg.jpg')  no-repeat center center fixed;
+            background: url('/user_data/user_{{ session.user_id }}/bg.jpg') no-repeat center center fixed;
             background-size: cover;
             min-height: 100vh;
         }
@@ -32,13 +31,6 @@
         .paper-card:hover {
             transform: translateY(-3px);
         }
-        .action-button {
-            margin: auto auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 1rem;
-        }
         .summary-container {
             position: relative;
         }
@@ -57,19 +49,14 @@
             padding: 0;
             font-size: 0.875rem;
         }
-        
+
         /* 新增评论项样式 */
         .comment-item {
             background-color: rgba(225, 225, 225, 0.7);
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: 0.5rem;
-            padding-bottom: 0.5rem;}
-        .like-count {
-            position: relative;
-            top: -2px;
-            font-size: 0.75rem;
-            margin-left: 2px;
+            padding: 0.5rem;
         }
     </style>
 </head>
@@ -91,52 +78,11 @@
                     </div>
                 </div>
             </nav>
-            <h3 class="mb-4 d-flex align-items-center justify-content-between">
-                <span>论文推荐</span>
-                <div class="d-flex align-items-center">
-                    <!-- 搜索框 -->
-                    <div class="input-group me-3" style="width: 250px;">
-                        <input type="text" class="form-control" placeholder="搜索论文..." v-model="searchQuery" @keyup.enter="handleSearch">
-                        <button class="btn btn-dark" type="button" @click="handleSearch">🔍</button>
-                    </div>
-                    
-                    <!-- 类别选择 -->
-                    <select class="form-select me-2" style="width: 100px;" v-model="selectedCategory">
-                        <option value="CV">cs.CV (计算机视觉)</option>
-                        <option value="CL">cs.CL (计算语言学)</option>
-                        <option value="AI">cs.AI (人工智能)</option>
-                        <option value="LG">cs.LG (机器学习)</option>
-                        <option value="AR">cs.AR (硬件架构)</option>
-                        <option value="CC">cs.CC (计算复杂度)</option>
-                        <option value="CE">cs.CE (计算工程)</option>
-                        <option value="CG">cs.CG (计算几何)</option>
-                        <option value="CR">cs.CR (密码学与安全)</option>
-                        <option value="CY">cs.CY (计算机与社会)</option>
-                        <option value="DB">cs.DB (数据库)</option>
-                        <option value="DC">cs.DC (分布式计算)</option>
-                        <option value="DL">cs.DL (数字图书馆)</option>
-                        <option value="DM">cs.DM (离散数学)</option>
-                        <option value="DS">cs.DS (数据结构与算法)</option>
-                        <option value="ET">cs.ET (新兴技术)</option>
-                        <option value="FL">cs.FL (形式语言)</option>
-                        <option value="GL">cs.GL (通用文献)</option>
-                        <option value="GR">cs.GR (图形学)</option>
-                        <option value="GT">cs.GT (博弈论)</option>
-                        <option value="HC">cs.HC (人机交互)</option>
-                    </select>
-
-                    <!-- 日期筛选 -->
-                    <input type="date" v-model="startDate" class="form-control me-2" style="width: 150px;">
-                    <span class="align-self-center me-2">至</span>
-                    <input type="date" v-model="endDate" class="form-control me-2" style="width: 150px;">
-                    <button class="btn btn-dark" @click="filterByDate">筛选</button>
-                </div>
-            </h3>
+            <h3 class="mb-4">我的收藏</h3>
             
             <div id="paperContainer" v-if="papers.length > 0">
                 <div v-for="paper in papers" :key="paper.id" class="paper-card">
                     <div class="row">
-                        <!-- 左半部分 - 根据是否有翻译内容动态调整宽度 -->
                         <div :class="{'col-md-12': !paper.translatedTitle && !paper.translatedSummary, 'col-md-6 border-end': paper.translatedTitle || paper.translatedSummary}">
                             <h5><a :href="paper.url" target="_blank" v-text="paper.title"></a></h5>
                             <div class="text-muted mb-2 d-flex align-items-center">
@@ -153,17 +99,9 @@
                                     <template v-else>展开</template>
                                 </button>
                                 <div class="action-buttons d-flex justify-content-end" v-if="!paper.translatedTitle && !paper.translatedSummary">
-                                    <button class="btn btn-secondary me-2" title="dislike" data-bs-toggle="tooltip" 
-                                            @click="handleAction(paper, 'dislike')">👎</button>
-                                    {% raw %}
-                                    <button class="btn btn-danger me-2" title="like" data-bs-toggle="tooltip" 
-                                            @click="handleAction(paper, 'like')">👍
-                                            <small class="like-count" v-if="paper.liked > 0">{{ paper.liked }}</small>
-                                    </button>
-                                    {% endraw %}
                                     <button 
-                                        :class="{'btn btn-danger me-2': paper.isCollected, 'btn btn-outline-danger me-2': !paper.isCollected}" 
-                                        title="collection" 
+                                        class="btn btn-danger me-2" 
+                                        title="取消收藏" 
                                         data-bs-toggle="tooltip" 
                                         @click="handleCollection(paper)">
                                         ⭐️
@@ -172,7 +110,6 @@
                             </div>
                         </div>
                         
-                        <!-- 右半部分 - 翻译内容 -->
                         <div class="col-md-6" v-if="paper.translatedTitle || paper.translatedSummary">
                             <h5><a :href="paper.url" target="_blank" v-text="paper.translatedTitle || '...'"></a></h5>
                             <div class="text-muted mb-2 d-flex align-items-center">
@@ -185,17 +122,9 @@
                                     摘要：<span v-text="paper.translatedSummary || '...'"></span>
                                 </p>
                                 <div class="action-buttons d-flex justify-content-end">
-                                    <button class="btn btn-secondary me-2" title="dislike" data-bs-toggle="tooltip" 
-                                            @click="handleAction(paper, 'dislike')">👎</button>
-                                    {% raw %}
-                                    <button class="btn btn-danger me-2" title="like" data-bs-toggle="tooltip" 
-                                            @click="handleAction(paper, 'like')">👍
-                                            <small class="like-count" v-if="paper.liked > 0">{{ paper.liked }}</small>
-                                    </button>
-                                    {% endraw %}
                                     <button 
-                                        :class="{'btn btn-danger me-2': paper.isCollected, 'btn btn-outline-danger me-2': !paper.isCollected}" 
-                                        title="collection" 
+                                        class="btn btn-danger me-2" 
+                                        title="取消收藏" 
                                         data-bs-toggle="tooltip" 
                                         @click="handleCollection(paper)">
                                         ⭐️
@@ -204,7 +133,7 @@
                             </div>
                         </div>
                     </div>
-                    <!-- 修改PDF预览部分保持不变 -->
+                    
                     <div class="mt-3">
                         <button class="btn btn-dark mb-2" @click="togglePdfPreview(paper)">
                             <template v-if="paper.showPdf">PDF</template>
@@ -214,28 +143,25 @@
                             <iframe 
                                 class="pdf-iframe" 
                                 :src="`https://arxiv.org/pdf/${paper.url.split('/').pop()}.pdf`"
-                                style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px;"
-                                sandbox="allow-same-origin allow-scripts allow-popups">
+                                style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px;">
                             </iframe>
                         </div>
                     </div>
 
                     <!-- 新增评论区域 -->
-                    <!-- 在评论区域添加 raw 标签包裹 -->
                     {% raw %}
                     <div class="mt-3 comment-section">
                         <h6>评论</h6>
                         <div v-for="(comment, index) in paper.comments.slice(0, paper.showAllComments ? paper.comments.length : 3)" 
                              :key="comment.id" 
-                             class="comment-item p-2"
-                             :id="'comment-' + comment.id">
+                             class="comment-item p-2">
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <strong>{{ comment.username }}</strong>
                                     <small class="text-muted ms-2">{{ formatDate(comment.timestamp) }}</small>
                                 </div>
                                 <button v-if="comment.username === username" 
-                                        class="btn btn-link btn-sm"
+                                        class="btn btn-link btn-sm text-danger"
                                         @click="deleteComment(paper, comment.id)">
                                     删除
                                 </button>
@@ -257,15 +183,16 @@
                 </div>
             </div>
             <div v-else class="text-center py-5">
-                <p class="text-muted">加载中...</p>
+                <p class="text-muted">暂无收藏论文</p>
             </div>
         </div>
     </div>
     <script>
-        const URL = "https://{{ base_url }}:{{ port }}";
-        const num_papers_show = 3;
-        console.log(URL);
+        const base_url = "{{ base_url }}" || new URLSearchParams(window.location.search).get('base_url');
+        const port = "{{ port }}" || new URLSearchParams(window.location.search).get('port');
+        const URL = `https://${base_url}:${port}`;
         const {createApp} = Vue;
+        console.log(URL)
     
         createApp({
             data() {
@@ -273,19 +200,11 @@
                     username: "{{username}}",
                     userId: "{{session.user_id}}",
                     papers: [],
-                    loadingTranslations: false,
-                    startDate: '',
-                    endDate: '',
-                    selectedCategory: 'CV', // 修改默认值为CV
-                    filterParams: {},
-                    searchQuery: '',
+                    loadingTranslations: false
                 }
             },
             mounted() {
-                this.filterParams = {
-                    category: this.selectedCategory // 初始按CV筛选
-                };
-                this.loadNewPapers(num_papers_show);
+                this.loadCollections();
                 this.initTooltips();
             },
             methods: {
@@ -293,7 +212,7 @@
                     window.location.href = '/';
                 },
                 goHome() {
-                    window.location.href = `/home/gohome?base_url=${encodeURIComponent("{{ base_url }}")}&port=${encodeURIComponent("{{ port }}")}`;
+                    window.location.href = "/home/gohome";
                 },
                 logout() {
                     fetch("/auth/logout", { method: "POST" })
@@ -301,7 +220,6 @@
                 },
                 async translatePaper(paper) {
                     try {
-                        // 翻译标题
                         const titleResponse = await fetch(`${URL}/api/translate`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -309,12 +227,11 @@
                                 text: paper.title,
                                 from: 'en',
                                 to: 'zh',
-                                user_id: this.userId  // 新增用户ID参数
+                                user_id: this.userId
                             })
                         });
                         const titleData = await titleResponse.json();
                         
-                        // 翻译摘要
                         const summaryResponse = await fetch(`${URL}/api/translate`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -322,81 +239,52 @@
                                 text: paper.summary,
                                 from: 'en',
                                 to: 'zh',
-                                user_id: this.userId  // 新增用户ID参数
+                                user_id: this.userId
                             })
                         });
                         const summaryData = await summaryResponse.json();
     
-                        // 直接赋值代替$set
                         paper.translatedTitle = titleData.translated;
                         paper.translatedSummary = summaryData.translated;
                         
                     } catch (error) {
                         console.error('翻译失败:', error);
-                        // 如果翻译失败，显示原文
                         paper.translatedTitle = paper.title;
                         paper.translatedSummary = paper.summary;
                     }
                 },
-    
-                async loadNewPapers(count) {
+                async loadCollections() {
                     try {
                         this.loadingTranslations = true;
-                        
-                        let url = `${URL}/api/papers?user_id=${this.userId}`;
-                        if (this.filterParams.start_date) {
-                            url += `&start_date=${this.filterParams.start_date}`;
-                        }
-                        if (this.filterParams.end_date) {
-                            url += `&end_date=${this.filterParams.end_date}`;
-                        }
-                        if (this.filterParams.category) {
-                            url += `&category=${this.filterParams.category}`;  // 添加类别参数
-                        }
-                        const response = await fetch(url);
+                        const response = await fetch(`${URL}/api/get_collection?user_id=${this.userId}`);
                         const papers = await response.json();
-    
-                        // 在loadNewPapers方法中修改
-                        const newPapers = papers.slice(0, count).map(paper => ({
+                        console.log(papers)
+
+                        this.papers = papers.map(paper => ({
                             ...paper,
                             expanded: false,
                             showPdf: false,
                             translatedTitle: '',
                             translatedSummary: '',
-                            isCollected: false,
-                            comments: paper.comments || [],  // 确保comments字段存在
-                            newComment: ''  // 添加评论输入框的绑定字段
+                            isCollected: true,
+                            comments: paper.comments || [],
+                            newComment: '',
+                            showAllComments: false  // 新增字段，控制评论显示数量
                         }));
-    
-                        this.papers.push(...newPapers);
-                        // 如果论文数量超过3篇，移除最早的论文
-                        if (this.papers.length > num_papers_show) {
-                            this.papers = this.papers.slice(-num_papers_show);
-                        }
 
-                        // 为每篇论文启动翻译
-                        for (const paper of newPapers) {
+                        for (const paper of this.papers) {
                             await this.translatePaper(paper);
                             await this.loadComments(paper.id);
-                            // 添加强制更新
-                            this.$forceUpdate(); // 新增这行
-                            await fetch(`${URL}/api/viewed?user_id=${this.userId}&paper_id=${paper.id}`);
+                            this.$forceUpdate();
                         }
-                    }
-                    catch (error) {
-                        console.error("Error loading new papers:", error);
+                    } catch (error) {
+                        console.error("Error loading collections:", error);
+                    } finally {
+                        this.loadingTranslations = false;
                     }
                 },
                 formatDate(dateString) {
-                    const options = { 
-                        year: 'numeric', 
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false
-                    };
-                    return new Date(dateString).toLocaleString('zh-CN', options);
+                    return new Date(dateString).toLocaleDateString();
                 },
                 toggleSummary(paper) {
                     paper.expanded = !paper.expanded;
@@ -405,63 +293,22 @@
                     paper.showPdf = !paper.showPdf;
                     this.$forceUpdate();
                 },
-                async handleAction(paper, actionType) {
-                    const paperIndex = paper.id
-
-                    try {
-                        await fetch(`${URL}/api/${actionType}`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                user_id: this.userId,
-                                paper_id: paperIndex,
-                                summary_embeddings: paper.summary_embeddings,
-                                category: this.selectedCategory,
-                            }),
-                        });
-
-                        this.papers = this.papers.filter(p => p.id !== paperIndex);
-                        this.loadNewPapers(1);
-                    }
-                    catch (error) {
-                        console.error(`Error ${actionType} paper:`, error);
-                    }
-                },
                 async handleCollection(paper) {
                     try {
-                        // 切换收藏状态
-                        paper.isCollected = !paper.isCollected;
-                        
                         await fetch(`${URL}/api/collection`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                                 user_id: this.userId,
                                 paper: paper,
-                                action: paper.isCollected ? 'collect' : 'uncollect',
+                                action: 'uncollect'
                             }),
                         });
                         
-                        this.$forceUpdate(); // 强制更新视图
-                    }
-                    catch (error) {
+                        // 从列表中移除
+                        this.papers = this.papers.filter(p => p.url !== paper.url);
+                    } catch (error) {
                         console.error('Error handling collection:', error);
-                        // 出错时恢复状态
-                        paper.isCollected = !paper.isCollected;
-                    }
-                },
-                filterByDate() {
-                    this.filterParams = {
-                        start_date: this.startDate,
-                        end_date: this.endDate,
-                        category: this.selectedCategory // 添加类别参数
-                    };
-                    this.papers = [];
-                    this.loadNewPapers(num_papers_show);
-                },
-                handleSearch() {
-                    if(this.searchQuery.trim()) {
-                        window.location.href = `/search?q=${encodeURIComponent(this.searchQuery)}`;
                     }
                 },
                 initTooltips() {
@@ -470,10 +317,8 @@
                         new bootstrap.Tooltip(tooltipTriggerEl);
                     });
                 },
-
                 async addComment(paper) {
                     if (!paper.newComment || !paper.newComment.trim()) return;
-                    
                     try {
                         const response = await fetch(`${URL}/api/comments`, {
                             method: "POST",
@@ -486,9 +331,6 @@
                         });
                         
                         const newComment = await response.json();
-                        if (!paper.comments) {
-                            this.$set(paper, 'comments', []);
-                        }
                         paper.comments.push(newComment);
                         paper.newComment = '';
                         await this.loadComments(paper.id);
@@ -496,22 +338,6 @@
                         console.error('添加评论失败:', error);
                     }
                 },
-            
-                async loadComments(paperId) {
-                    try {
-                        const response = await fetch(`${URL}/api/papers/${paperId}/comments`);
-                        const comments = await response.json();
-                        // 找到对应的paper对象更新评论
-                        const targetPaper = this.papers.find(p => p.id === paperId);
-                        if (targetPaper) {
-                            targetPaper.comments = comments;
-                            this.$forceUpdate(); // 确保视图更新
-                        }
-                    } catch (error) {
-                        console.error('加载评论失败:', error);
-                    }
-                },
-            
                 async deleteComment(paper, commentId) {
                     try {
                         const response = await fetch(`${URL}/api/comments/${commentId}`, {
@@ -528,9 +354,23 @@
                             this.$forceUpdate();
                         } else {
                             console.error('删除评论失败:', await response.text());
+                            alert('删除评论失败');
                         }
                     } catch (error) {
                         console.error('删除评论出错:', error);
+                        alert('删除评论时出错');
+                    }
+                },
+                async loadComments(paperId) {
+                    try {
+                        const response = await fetch(`${URL}/api/papers/${paperId}/comments`);
+                        const comments = await response.json();
+                        const targetPaper = this.papers.find(p => p.id === paperId);
+                        if (targetPaper) {
+                            targetPaper.comments = comments;
+                        }
+                    } catch (error) {
+                        console.error('加载评论失败:', error);
                     }
                 }
             }

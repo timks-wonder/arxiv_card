@@ -4,6 +4,8 @@ import numpy as np
 from flask import render_template, session  # 确保已导入session
 import pandas as pd
 from pathlib import Path
+import shutil
+import os
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -54,10 +56,20 @@ def register():
             'username': username,
             'password': password,
             'user_embedding': rank_emb,
-            'interes_embedding': recall_emb
+            'interes_embedding': recall_emb,
+            'num_collections': 20,
         }])
         
+        # 创建用户文件夹并复制默认背景图片
+        user_folder = Path(__file__).parent.parent / f'user_data/user_{new_id}'
+        os.makedirs(user_folder, exist_ok=True)
+        default_bg = Path(__file__).parent.parent / 'static/images/bg.jpg'
+        if default_bg.exists():
+            shutil.copy(default_bg, user_folder / 'bg.jpg')
+        
         save_users_df(pd.concat([df, new_user], ignore_index=True))
+
+
         return redirect(url_for('auth.login'))
     except Exception as e:
         return f'注册失败: {str(e)}'
@@ -91,5 +103,24 @@ def login():
 
 @bp.route('/logout', methods=['POST'])
 def logout():
+    # 检查是否为游客账户
+    if 'username' in session and session['username'].startswith('undefined_user_'):
+        try:
+            # 删除游客文件夹
+            user_folder = Path(__file__).parent.parent / f'user_data/user_{session["user_id"]}'
+            if user_folder.exists():
+                shutil.rmtree(user_folder)
+        except Exception as e:
+            print(f"删除游客文件夹失败: {str(e)}")
+    
     session.clear()
     return redirect(url_for('auth.login'))
+
+
+@bp.route('/user_count', methods=['GET'])
+def get_user_count():
+    try:
+        df = get_users_df()
+        return {'count': len(df)}
+    except Exception as e:
+        return {'error': f'获取用户数失败: {str(e)}'}, 500
