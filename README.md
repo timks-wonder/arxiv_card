@@ -2,6 +2,7 @@
 
 ## 项目简介
 
+线上地址：arxivcards.top
 一个基于Flask的arXiv论文推荐系统，使用语义嵌入(Sentence Transformers)和协同过滤技术，为用户提供个性化的计算机视觉领域论文推荐服务。
 
 ## 核心功能
